@@ -2,8 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    Expr, Ident, Result, Token,
+    parse_macro_input, Expr, Ident, Result, Token,
 };
 
 // For literal data tables (quoted strings only)
@@ -16,6 +15,8 @@ struct UnquotedMacroInput {
     rows: Vec<Vec<Expr>>,
 }
 
+// Following modification by the macro, like quoting things that are probably strings,
+// newline separation, etc.
 struct ParsedRows {
     rows: Vec<Vec<Expr>>,
 }
@@ -66,10 +67,10 @@ impl Parse for UnquotedMacroInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let parsed = parse_rows(input, |input| {
             if input.peek(Ident)
-                && !input.peek2(syn::token::Paren)
-                && !input.peek2(syn::token::Bracket)
-                && !input.peek2(syn::token::Brace)
-                && !input.peek2(syn::Token![.])
+                && !input.peek2(syn::token::Paren)    // fn()
+                && !input.peek2(syn::token::Bracket)  // arr[]
+                && !input.peek2(syn::token::Brace)    // T{}
+                && !input.peek2(syn::Token![.])             // obj.field
                 && !input.peek2(syn::Token![::])
             {
                 let ident = input.parse::<Ident>()?;
@@ -84,18 +85,16 @@ impl Parse for UnquotedMacroInput {
 
 #[proc_macro]
 pub fn serde_table_expr(input: TokenStream) -> TokenStream {
-    let serde_table = parse_macro_input!(input as ExprMacroInput);
-    generate_output(serde_table.rows)
+    serde_table_impl(parse_macro_input!(input as ExprMacroInput).rows)
 }
 
 #[proc_macro]
 pub fn serde_table(input: TokenStream) -> TokenStream {
-    let serde_table = parse_macro_input!(input as UnquotedMacroInput);
-    generate_output(serde_table.rows)
+    serde_table_impl(parse_macro_input!(input as UnquotedMacroInput).rows)
 }
 
 // Helper function to avoid code duplication
-fn generate_output(rows: Vec<Vec<Expr>>) -> TokenStream {
+fn serde_table_impl(rows: Vec<Vec<Expr>>) -> TokenStream {
     let row_expressions = rows.iter().map(|row| {
         let exprs = row.iter();
         quote! {
