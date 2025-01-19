@@ -121,7 +121,7 @@ fn generate_output(rows: Vec<Vec<Expr>>) -> TokenStream {
     });
 
     quote! {{
-        ::serde_table::parse(vec![#(#row_expressions),*])
+        ::serde_table::parse([#(#row_expressions),*])
     }}
     .into()
 }

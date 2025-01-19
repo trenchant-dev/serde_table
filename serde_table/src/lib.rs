@@ -5,18 +5,25 @@ pub use serde_table_internals::serde_table_expr;
 use csv;
 use serde::de::DeserializeOwned;
 
-pub fn parse<T>(rows: Vec<Vec<String>>) -> Result<Vec<T>, Box<dyn std::error::Error>>
+pub fn parse<T, I, J, S>(rows: I) -> Result<Vec<T>, Box<dyn std::error::Error>>
 where
     T: DeserializeOwned,
+    I: IntoIterator<Item = J>,
+    J: IntoIterator<Item = S>,
+    S: AsRef<[u8]>,
 {
-    if rows.is_empty() {
+    let mut writer = csv::Writer::from_writer(Vec::new());
+    let mut is_empty = true;
+
+    for row in rows {
+        is_empty = false;
+        writer.write_record(row)?;
+    }
+
+    if is_empty {
         return Ok(Vec::new());
     }
 
-    let mut writer = csv::Writer::from_writer(Vec::new());
-    for row in &rows {
-        writer.write_record(row)?;
-    }
     writer.flush()?;
 
     let data = String::from_utf8(writer.into_inner()?)?;
