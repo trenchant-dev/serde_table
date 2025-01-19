@@ -39,9 +39,9 @@ fn test_motivation() {
 #[test]
 fn test_flexible_whitespace() {
     let people: Vec<Person> = serde_table! {
-        "name"     "age"      "city"
-        "Alice with a space"    42       "Seattle"
-        "Bob"      38       "Portland"
+        name     age      city
+        "Alice with a space"    42       Seattle
+        "Bob"      "38"       "Portland"
     }
     .unwrap();
 
@@ -71,8 +71,33 @@ fn test_exprs() {
         "Bob"      calc_age("hi")    "Portland"
     }
     .unwrap();
-    // .parse()
-    // .unwrap();
+
+    assert_eq!(
+        people,
+        vec![
+            Person {
+                name: "Alice".to_string(),
+                age: 42,
+                city: "Seattle".to_string(),
+            },
+            Person {
+                name: "Bob".to_string(),
+                age: calc_age("hi"),
+                city: "Portland".to_string(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn test_exprs_1() {
+    let calc_age = |_| 24;
+    let people: Vec<Person> = serde_table_expr! {
+        "name"     "age"         "city"
+        "Alice"    42            "Seattle"
+        "Bob"      calc_age("hi")    "Portland"
+    }
+    .unwrap();
 
     assert_eq!(
         people,
