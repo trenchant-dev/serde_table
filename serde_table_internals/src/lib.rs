@@ -107,9 +107,15 @@ pub fn serde_table(input: TokenStream) -> TokenStream {
 // Helper function to avoid code duplication
 fn serde_table_impl(rows: Vec<Vec<Expr>>) -> TokenStream {
     let row_expressions = rows.iter().map(|row| {
-        let exprs = row.iter();
+        let exprs = row.iter().map(|expr| {
+            // Wrapping in parens here lets you write "24-1" in a column as a value. Doesn't solve the problem of
+            // "hi" (24-1) being interpeted as a function call, but screw that, lift to variable at that point.
+            quote! {
+                (#expr).to_string()
+            }
+        });
         quote! {
-            vec![#(#exprs.to_string()),*]
+            vec![#(#exprs),*]
         }
     });
 

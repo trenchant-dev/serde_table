@@ -1,3 +1,43 @@
+//! [![github]](https://github.com/trenchant-dev/serde_table)&ensp;[![crates-io]](https://crates.io/crates/serde_table)&ensp;[![docs-rs]](https://docs.rs/serde_table)
+//! //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
+//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
+//!
+//! <br>
+//! A macro for parsing tables into Rust structs.
+//!
+//! ```rust
+//! use serde::Deserialize;
+//! use serde_table::serde_table;
+//!
+//! #[derive(Deserialize)]
+//! struct Person {
+//!     name: String,
+//!     age: u32,
+//!     city: String,
+//! }
+//!
+//! let people: Vec<Person> = serde_table! {
+//!     name    age   city
+//!     John    30    NewYork
+//!     Jane    25    LosAngeles
+//! }.unwrap();
+//! ```
+//!
+//! ## Advanced Usage
+//! While `serde_table` ought to do the right thing in general,
+//! you can use `serde_table_expr` if you need to avoid the automatic quoting of bare variable-names (identifiers).
+//!
+//! ## Installation
+//!
+//! Add the following to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! serde_table = "0.1.0"
+//! ```
+//!
+
 // Re-export from the proc-macro crate.
 pub use serde_table_internals::serde_table;
 pub use serde_table_internals::serde_table_expr;
@@ -7,7 +47,8 @@ use serde::de::DeserializeOwned;
 
 #[derive(Debug)]
 pub enum TableError {
-    Csv(csv::Error),
+    CsvWriteRow(String, csv::Error),
+    CsvRead(String, csv::Error),
     Utf8(std::string::FromUtf8Error),
 }
 
@@ -16,15 +57,12 @@ impl std::error::Error for TableError {}
 impl std::fmt::Display for TableError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TableError::Csv(e) => write!(f, "CSV error: {}", e),
+            TableError::CsvWriteRow(row, e) => {
+                write!(f, "CSV Write Row error: {}\nRow: {}", e, row)
+            }
+            TableError::CsvRead(data, e) => write!(f, "CSV Read error: {}\nData: {}", e, data),
             TableError::Utf8(e) => write!(f, "UTF-8 conversion error: {}", e),
         }
-    }
-}
-
-impl From<csv::Error> for TableError {
-    fn from(err: csv::Error) -> Self {
-        TableError::Csv(err)
     }
 }
 
@@ -49,7 +87,10 @@ where
 
     for row in rows {
         is_empty = false;
-        writer.write_record(row)?;
+        let log_row = format!("{:?}", row);
+        writer
+            .write_record(row)
+            .map_err(|e| TableError::CsvWriteRow(format!("{:?}", log_row), e))?;
     }
 
     if is_empty {
@@ -61,5 +102,5 @@ where
     let data = String::from_utf8(writer.into_inner().unwrap())?;
     let mut reader = csv::Reader::from_reader(data.as_bytes());
     let items: Result<Vec<T>, _> = reader.deserialize().collect();
-    items.map_err(TableError::Csv)
+    items.map_err(|e| TableError::CsvRead(data, e))
 }
