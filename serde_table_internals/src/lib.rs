@@ -3,7 +3,6 @@ use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
-    spanned::Spanned,
     Expr, Ident, Result, Token,
 };
 
@@ -17,86 +16,69 @@ struct UnquotedMacroInput {
     rows: Vec<Vec<Expr>>,
 }
 
+struct ParsedRows {
+    rows: Vec<Vec<Expr>>,
+}
+
+fn parse_rows(
+    input: ParseStream,
+    parse_expr: impl Fn(ParseStream) -> Result<Expr>,
+) -> Result<ParsedRows> {
+    let mut rows = Vec::new();
+    let mut current_row = Vec::new();
+    let mut current_line = input.span().start().line;
+
+    while !input.is_empty() {
+        let next_span = input.span().start();
+
+        // Check if we're on a new line
+        if next_span.line > current_line && !current_row.is_empty() {
+            rows.push(current_row);
+            current_row = Vec::new();
+        }
+        current_line = next_span.line;
+
+        // Parse the next expression using provided parser
+        let expr = parse_expr(input)?;
+        current_row.push(expr);
+
+        // Skip any whitespace
+        while input.peek(Token![_]) {
+            let _ = input.parse::<Token![_]>()?;
+        }
+    }
+
+    if !current_row.is_empty() {
+        rows.push(current_row);
+    }
+
+    Ok(ParsedRows { rows })
+}
+
 impl Parse for ExprMacroInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut rows = Vec::new();
-        let mut current_row = Vec::new();
-        let mut last_line = 1;
-
-        while !input.is_empty() {
-            // Parse each item as an expression
-            let expr = input.parse::<Expr>()?;
-
-            // Check if we're on a new line by comparing spans
-            let span = expr.span();
-            let line = span.start().line;
-
-            if line > last_line && !current_row.is_empty() {
-                rows.push(current_row);
-                current_row = Vec::new();
-            }
-
-            current_row.push(expr);
-            last_line = line;
-
-            // Skip any whitespace
-            while input.peek(syn::Token![_]) {
-                let _ = input.parse::<syn::Token![_]>()?;
-            }
-        }
-
-        if !current_row.is_empty() {
-            rows.push(current_row);
-        }
-
-        Ok(ExprMacroInput { rows })
+        let parsed = parse_rows(input, |input| input.parse::<Expr>())?;
+        Ok(ExprMacroInput { rows: parsed.rows })
     }
 }
 
 impl Parse for UnquotedMacroInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut rows = Vec::new();
-        let mut current_row = Vec::new();
-        let mut current_line = input.span().start().line;
-
-        while !input.is_empty() {
-            let next_span = input.span().start();
-
-            // Check if we're on a new line
-            if next_span.line > current_line && !current_row.is_empty() {
-                rows.push(current_row);
-                current_row = Vec::new();
-            }
-            current_line = next_span.line;
-
-            // Parse the next expression
-            let expr = if input.peek(Ident)
-                && !input.peek2(syn::token::Paren)   // fn()
-                && !input.peek2(syn::token::Bracket) // arr[]
-                && !input.peek2(syn::token::Brace)   // T{}
-                && !input.peek2(syn::Token![.])            // obj.field
+        let parsed = parse_rows(input, |input| {
+            if input.peek(Ident)
+                && !input.peek2(syn::token::Paren)
+                && !input.peek2(syn::token::Bracket)
+                && !input.peek2(syn::token::Brace)
+                && !input.peek2(syn::Token![.])
                 && !input.peek2(syn::Token![::])
             {
                 let ident = input.parse::<Ident>()?;
-                let ident_str = ident.to_string();
-                syn::parse_str::<Expr>(&format!("\"{}\"", ident_str))?
+                syn::parse_str::<Expr>(&format!("\"{}\"", ident.to_string()))
             } else {
-                input.parse::<Expr>()?
-            };
-
-            current_row.push(expr);
-
-            // Skip any whitespace
-            while input.peek(Token![_]) {
-                let _ = input.parse::<Token![_]>()?;
+                input.parse::<Expr>()
             }
-        }
-
-        if !current_row.is_empty() {
-            rows.push(current_row);
-        }
-
-        Ok(UnquotedMacroInput { rows })
+        })?;
+        Ok(UnquotedMacroInput { rows: parsed.rows })
     }
 }
 
