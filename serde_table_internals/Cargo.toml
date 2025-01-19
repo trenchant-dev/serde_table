@@ -17,7 +17,8 @@ rust-version = "1.31"
 [dependencies]
 proc-macro2 = { workspace = true, features=["span-locations"] }
 quote = { workspace = true }
-syn = { workspace = true, features = ["clone-impls", "derive", "parsing", "printing", "proc-macro"] }
+# TODO Remove extra-traits, it was for debugging.
+syn = { workspace = true, features = ["clone-impls", "derive", "parsing", "printing", "proc-macro", "extra-traits"] }
 
 [lib]
 proc-macro = true

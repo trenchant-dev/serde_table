@@ -8,16 +8,16 @@ use syn::{
 };
 
 // For literal data tables (quoted strings only)
-struct WsData {
+struct ExprMacroInput {
     rows: Vec<Vec<Expr>>,
 }
 
 // For tables with expressions (supports unquoted identifiers)
-struct WsDataExpr {
+struct UnquotedMacroInput {
     rows: Vec<Vec<Expr>>,
 }
 
-impl Parse for WsData {
+impl Parse for ExprMacroInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut rows = Vec::new();
         let mut current_row = Vec::new();
@@ -49,25 +49,34 @@ impl Parse for WsData {
             rows.push(current_row);
         }
 
-        Ok(WsData { rows })
+        Ok(ExprMacroInput { rows })
     }
 }
 
-impl Parse for WsDataExpr {
+impl Parse for UnquotedMacroInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut rows = Vec::new();
         let mut current_row = Vec::new();
-        let mut last_line = 1;
+        let mut current_line = input.span().start().line;
 
         while !input.is_empty() {
-            let expr = if input.peek(Ident) 
-                && !input.peek2(syn::token::Paren)    // fn()
-                && !input.peek2(syn::token::Bracket)  // arr[]
-                && !input.peek2(syn::token::Brace)    // T{}
-                && !input.peek2(syn::Token![.])       // obj.field
-                && !input.peek2(syn::Token![::])      // path::to
+            let next_span = input.span().start();
+
+            // Check if we're on a new line
+            if next_span.line > current_line && !current_row.is_empty() {
+                rows.push(current_row);
+                current_row = Vec::new();
+            }
+            current_line = next_span.line;
+
+            // Parse the next expression
+            let expr = if input.peek(Ident)
+                && !input.peek2(syn::token::Paren)   // fn()
+                && !input.peek2(syn::token::Bracket) // arr[]
+                && !input.peek2(syn::token::Brace)   // T{}
+                && !input.peek2(syn::Token![.])            // obj.field
+                && !input.peek2(syn::Token![::])
             {
-                // Only convert simple bare identifiers into string literals
                 let ident = input.parse::<Ident>()?;
                 let ident_str = ident.to_string();
                 syn::parse_str::<Expr>(&format!("\"{}\"", ident_str))?
@@ -75,17 +84,9 @@ impl Parse for WsDataExpr {
                 input.parse::<Expr>()?
             };
 
-            let span = expr.span();
-            let line = span.start().line;
-
-            if line > last_line && !current_row.is_empty() {
-                rows.push(current_row);
-                current_row = Vec::new();
-            }
-
             current_row.push(expr);
-            last_line = line;
 
+            // Skip any whitespace
             while input.peek(Token![_]) {
                 let _ = input.parse::<Token![_]>()?;
             }
@@ -95,19 +96,19 @@ impl Parse for WsDataExpr {
             rows.push(current_row);
         }
 
-        Ok(WsDataExpr { rows })
+        Ok(UnquotedMacroInput { rows })
     }
 }
 
 #[proc_macro]
-pub fn serde_table(input: TokenStream) -> TokenStream {
-    let serde_table = parse_macro_input!(input as WsData);
+pub fn serde_table_expr(input: TokenStream) -> TokenStream {
+    let serde_table = parse_macro_input!(input as ExprMacroInput);
     generate_output(serde_table.rows)
 }
 
 #[proc_macro]
-pub fn serde_table_expr(input: TokenStream) -> TokenStream {
-    let serde_table = parse_macro_input!(input as WsDataExpr);
+pub fn serde_table(input: TokenStream) -> TokenStream {
+    let serde_table = parse_macro_input!(input as UnquotedMacroInput);
     generate_output(serde_table.rows)
 }
 

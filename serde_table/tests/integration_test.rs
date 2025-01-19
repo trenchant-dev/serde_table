@@ -11,11 +11,11 @@ struct Person {
 }
 
 #[test]
-fn test_basic_parsing() {
+fn test_motivation() {
     let people: Vec<Person> = serde_table! {
-        "name"    "age"   "city"
-        "John"    30    "NewYork"
-        "Jane"    25    "LosAngeles"
+        name    age   city
+        John    30    NewYork
+        Jane    25    LosAngeles
     }
     .unwrap();
 
@@ -65,7 +65,7 @@ fn test_flexible_whitespace() {
 #[test]
 fn test_exprs() {
     let calc_age = |_| 24;
-    let people: Vec<Person> = serde_table_expr! {
+    let people: Vec<Person> = serde_table! {
         "name"     "age"         city
         "Alice"    42            "Seattle"
         "Bob"      calc_age("hi")    "Portland"
