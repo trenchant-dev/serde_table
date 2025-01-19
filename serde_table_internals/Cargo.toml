@@ -1,0 +1,32 @@
+[package]
+name = "serde_table_internals"
+version = "0.1.0"
+authors = ["Trenchant <trenchant.dev@gmail.com>"]
+# build = "build.rs"
+categories = ["rust-patterns"]
+description = "Proc-macro crate for serde_table."
+documentation = "https://docs.rs/serde_table"
+edition = "2018"
+homepage = "https://github.com/trenchant-dev/serde_table"
+keywords = []
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/trenchant-dev/serde_table"
+rust-version = "1.31"
+
+[dependencies]
+proc-macro2 = { workspace = true, features=["span-locations"] }
+quote = { workspace = true }
+syn = { workspace = true, features = ["clone-impls", "derive", "parsing", "printing", "proc-macro"] }
+
+[lib]
+proc-macro = true
+# doc-scrape-examples = false
+
+# [package.metadata.playground]
+# features = ["derive", "rc"]
+
+[package.metadata.docs.rs]
+# features = ["derive", "rc", "unstable"]
+# targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = ["--generate-link-to-definition"]
