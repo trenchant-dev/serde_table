@@ -6,45 +6,44 @@ use csv;
 use serde::de::DeserializeOwned;
 
 /// You should never need to interact with this struct directly.
-pub struct WhitespaceData(String);
+pub struct StringRows(Vec<Vec<String>>);
 
-impl WhitespaceData {
+impl StringRows {
     pub fn new(content: &str) -> Self {
-        Self(content.to_string())
+        let rows: Vec<Vec<String>> = content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| {
+                line.split_whitespace()
+                    .map(|s| s.trim_matches('"').to_string())
+                    .collect()
+            })
+            .collect();
+        Self(rows)
     }
 
-    // TODO Return non box dyn.
+    pub fn from_rows(rows: Vec<Vec<String>>) -> Self {
+        Self(rows)
+    }
+
     pub fn parse<T>(&self) -> Result<Vec<T>, Box<dyn std::error::Error>>
     where
         T: DeserializeOwned,
     {
-        // Convert whitespace-delimited data to CSV
-        let mut csv_data = String::new();
-        for line in self.0.lines() {
-            // eprintln!("Line: {}", line);
-            if line.trim().is_empty() {
-                continue;
-            }
-            let quoted = line
-                .split_whitespace()
-                .map(|s| format!("\"{}\"", s))
-                .collect::<Vec<_>>()
-                .join(",");
-            if !quoted.is_empty() {
-                csv_data.push_str(&quoted);
-                csv_data.push('\n');
-            }
-        }
-
-        // If we have no data, return empty vector
-        if csv_data.is_empty() {
+        if self.0.is_empty() {
             return Ok(Vec::new());
         }
 
-        // eprintln!("CSV data:\n{}", csv_data);
+        // Convert to CSV format
+        let mut writer = csv::Writer::from_writer(Vec::new());
+        for row in &self.0 {
+            writer.write_record(row)?;
+        }
+        writer.flush()?;
 
-        // Parse using csv reader
-        let mut reader = csv::Reader::from_reader(csv_data.as_bytes());
+        // Parse the CSV data
+        let data = String::from_utf8(writer.into_inner()?)?;
+        let mut reader = csv::Reader::from_reader(data.as_bytes());
         let items: Result<Vec<T>, _> = reader.deserialize().collect();
         items.map_err(|e| e.into())
     }

@@ -116,16 +116,12 @@ fn generate_output(rows: Vec<Vec<Expr>>) -> TokenStream {
     let row_expressions = rows.iter().map(|row| {
         let exprs = row.iter();
         quote! {
-            let row_str = vec![#(#exprs.to_string()),*].join(" ");
-            __data.push_str(&row_str);
-            __data.push('\n');
+            vec![#(#exprs.to_string()),*]
         }
     });
 
     quote! {{
-        let mut __data = String::new();
-        #(#row_expressions)*
-        ::serde_table::WhitespaceData::new(&__data)
+        ::serde_table::StringRows::from_rows(vec![#(#row_expressions),*]).parse()
     }}
     .into()
 }

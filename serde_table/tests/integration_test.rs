@@ -17,7 +17,6 @@ fn test_basic_parsing() {
         "John"    30    "NewYork"
         "Jane"    25    "LosAngeles"
     }
-    .parse()
     .unwrap();
 
     assert_eq!(
@@ -44,7 +43,6 @@ fn test_flexible_whitespace() {
         "Alice with a space"    42       "Seattle"
         "Bob"      38       "Portland"
     }
-    .parse()
     .unwrap();
 
     assert_eq!(
@@ -72,8 +70,9 @@ fn test_exprs() {
         "Alice"    42            "Seattle"
         "Bob"      calc_age("hi")    "Portland"
     }
-    .parse()
     .unwrap();
+    // .parse()
+    // .unwrap();
 
     assert_eq!(
         people,
