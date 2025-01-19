@@ -30,6 +30,17 @@ fn parse_rows(
     let mut current_line = input.span().start().line;
 
     while !input.is_empty() {
+        // Skip line comments
+        if input.peek(syn::Token![/]) && input.peek2(syn::Token![/]) {
+            while !input.is_empty() && input.span().start().line == current_line {
+                input.step(|cursor| Ok(((), *cursor)))?;
+            }
+            if !input.is_empty() {
+                current_line = input.span().start().line;
+            }
+            continue;
+        }
+
         let next_span = input.span().start();
 
         // Check if we're on a new line

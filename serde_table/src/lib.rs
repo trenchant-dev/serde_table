@@ -34,6 +34,8 @@ impl From<std::string::FromUtf8Error> for TableError {
     }
 }
 
+/// Given a Vec<Vec<String>>, parse it into a Vec<T>>
+/// We do this by writing rows to a CSV in memory and then using serde to read them back.
 pub fn parse<T, I, J, S>(rows: I) -> Result<Vec<T>, TableError>
 where
     T: DeserializeOwned,
@@ -46,7 +48,6 @@ where
     let mut is_empty = true;
 
     for row in rows {
-        eprintln!("row: {:?}", row);
         is_empty = false;
         writer.write_record(row)?;
     }
