@@ -1,9 +1,3 @@
-//! [![github]](https://github.com/trenchant-dev/serde_table)&ensp;[![crates-io]](https://crates.io/crates/serde_table)&ensp;[![docs-rs]](https://docs.rs/serde_table)
-//! //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
-//! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
-//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
-//!
-//! <br>
 //! A macro for parsing tables into Rust structs.
 //!
 //! ```rust
@@ -45,36 +39,42 @@ pub use serde_table_internals::serde_table_expr;
 use csv;
 use serde::de::DeserializeOwned;
 
+/// Errors that can occur when using `serde_table`.
 #[derive(Debug)]
-pub enum TableError {
+pub enum SerdeTableError {
+    /// Error when writing a row to the in-memory CSV.
     CsvWriteRow(String, csv::Error),
+    /// Error when trying to parse the in-memory CSV row.
+    /// Often wrong  column type or number of elements in this row.
     CsvRead(String, csv::Error),
+    /// Error when converting the in-memory CSV to a string.
     Utf8(std::string::FromUtf8Error),
 }
 
-impl std::error::Error for TableError {}
+impl std::error::Error for SerdeTableError {}
 
-impl std::fmt::Display for TableError {
+impl std::fmt::Display for SerdeTableError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TableError::CsvWriteRow(row, e) => {
+            SerdeTableError::CsvWriteRow(row, e) => {
                 write!(f, "CSV Write Row error: {}\nRow: {}", e, row)
             }
-            TableError::CsvRead(data, e) => write!(f, "CSV Read error: {}\nData: {}", e, data),
-            TableError::Utf8(e) => write!(f, "UTF-8 conversion error: {}", e),
+            SerdeTableError::CsvRead(data, e) => write!(f, "CSV Read error: {}\nData: {}", e, data),
+            SerdeTableError::Utf8(e) => write!(f, "UTF-8 conversion error: {}", e),
         }
     }
 }
 
-impl From<std::string::FromUtf8Error> for TableError {
+impl From<std::string::FromUtf8Error> for SerdeTableError {
     fn from(err: std::string::FromUtf8Error) -> Self {
-        TableError::Utf8(err)
+        SerdeTableError::Utf8(err)
     }
 }
 
-/// Given a Vec<Vec<String>>, parse it into a Vec<T>>
+/// Given a `Vec<Vec<String>>`, parse it into a `Vec<T>>`.
+///
 /// We do this by writing rows to a CSV in memory and then using serde to read them back.
-pub fn parse<T, I, J, S>(rows: I) -> Result<Vec<T>, TableError>
+pub fn parse<T, I, J, S>(rows: I) -> Result<Vec<T>, SerdeTableError>
 where
     T: DeserializeOwned,
     I: IntoIterator<Item = J>,
@@ -90,7 +90,7 @@ where
         let log_row = format!("{:?}", row);
         writer
             .write_record(row)
-            .map_err(|e| TableError::CsvWriteRow(format!("{:?}", log_row), e))?;
+            .map_err(|e| SerdeTableError::CsvWriteRow(format!("{:?}", log_row), e))?;
     }
 
     if is_empty {
@@ -102,5 +102,5 @@ where
     let data = String::from_utf8(writer.into_inner().unwrap())?;
     let mut reader = csv::Reader::from_reader(data.as_bytes());
     let items: Result<Vec<T>, _> = reader.deserialize().collect();
-    items.map_err(|e| TableError::CsvRead(data, e))
+    items.map_err(|e| SerdeTableError::CsvRead(data, e))
 }

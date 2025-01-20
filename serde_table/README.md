@@ -33,7 +33,7 @@ While `serde_table` ought to do the right thing in general,
 you can use `serde_table_expr` if you need to avoid the automatic quoting of bare variable-names (identifiers).
 
 ## Why?
-When you're writing tests, have you ever felt the desire to hide the data off in a file? Or switch to (ron)[https://github.com/ron-rs/ron]?
+When you're writing tests, have you ever felt the desire to hide the data off in a file? Or switch to [ron](https://github.com/ron-rs/ron)?
 
 This is because modern programming is preoccupied with the individual, not the batch. Here's a before, 153 characters.
 ```rust
